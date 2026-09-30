@@ -1,0 +1,9 @@
+.env
+/data/
+outputs/
+outputs_test_tmp/
+.ipython/
+.ipynb_checkpoints/
+__pycache__/
+*.pyc
+.venv/

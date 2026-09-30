@@ -1,0 +1,1 @@
+"""Local inverse-index dashboard."""

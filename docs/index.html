@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Index dashboard</title>
+  <link rel="stylesheet" href="app.css">
+</head>
+<body>
+  <header class="top">
+    <div>
+      <p class="eyebrow">Inverse index</p>
+      <h1 id="title">Loading…</h1>
+    </div>
+    <p class="formula" id="formula"></p>
+  </header>
+  <div class="layout">
+    <aside class="picker">
+      <label class="search">
+        <span class="sr">Search cards</span>
+        <input id="search" type="search" placeholder="Search cards" autocomplete="off" spellcheck="false">
+      </label>
+      <div class="plan-filters" id="plan-filters"></div>
+      <div class="picker-actions">
+        <button type="button" id="select-visible">Select visible</button>
+        <button type="button" id="clear-selected">Clear</button>
+      </div>
+      <p class="count" id="match-count"></p>
+      <ul class="options" id="options"></ul>
+    </aside>
+    <main>
+      <section class="panel panel-selected">
+        <h2><button type="button" class="panel-toggle" aria-expanded="true" aria-controls="chips">Selected</button></h2>
+        <div class="panel-body chips" id="chips"></div>
+      </section>
+      <section class="panel panel-fill">
+        <h2><button type="button" class="panel-toggle" aria-expanded="true" aria-controls="chart">Index over time</button></h2>
+        <div class="panel-body" id="chart"></div>
+      </section>
+      <section class="panel panel-fill">
+        <div class="panel-head">
+          <h2><button type="button" class="panel-toggle" aria-expanded="true" aria-controls="table">Historical values</button></h2>
+          <div class="panel-tools">
+            <label class="tool-check"><input type="checkbox" id="show-price"> Price</label>
+            <button type="button" id="date-sort" aria-pressed="true">Newest first</button>
+            <button type="button" id="export-csv">Export CSV</button>
+          </div>
+        </div>
+        <div class="panel-body table-wrap" id="table"></div>
+      </section>
+    </main>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>

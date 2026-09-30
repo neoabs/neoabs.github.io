@@ -1,0 +1,39 @@
+**You are analytical agent. **
+
+# Short summary
+The end goal is to espress Kth card and plan price using K' cards and plans prices.
+
+# Business case
+
+We are using Nvidia H100 card in ON DEMAND plan. We want to compare it's pricing to other options. There isn't always avaliable pricing for this case. So we want to create prices' indices for other plans so we can later derrive from them what is the price of our plan, even if it's pricing is not avaliable at the moment.
+
+# Solution proposal
+
+The solution must be implemented in series of jupyter notebooks. At least one notebook per stage
+
+## Stage one
+We need to create vector and matrix of inverse prices indices:
+ - *inverse* means that multiplying index **i_K** by price **P_K** of **K-th** card and plan I get the price of base card and plan (here, NVidia H100, ON DEMAND).
+  - *vector*: it shows how our base price changed over time. so it's time index **t** regarding our base price: I_t. Index should start with vale 1 with base price in t=0 and as price evolves. No data should be fiiled with NaN/ NA or whatever is relevant.
+  - *matrix*: should contain indices for other cards i \in 1..K (i=0 is revferved for our base card) for each time period t \in 1..T. Multpiling i_t,k by price P_k should yield P_0,t. Where it cannot be calculated fill it with NA/NaN or whatever is  most relevant.
+
+## Stage two - raw diff
+
+Find out which indexes are most stable related to i=0. Prepare some test for absolute and relative difference over time. We want to find out which indexes i \in 1..K are least changing over time. Prepare noteobook, with some graphs and other visual aides.
+
+## Stage three - clustering
+
+Use some methods of clustering, including but not limited to time series clustering, to build composite indices that have lower variablitity over time (are more stable related to P_0,t). Again, provide some visual aides as well as desciption how these indices are built. THese idices should be able to be constructed and work even if some J-th prices is not avaliable at time \tau. Take that into acount.
+
+## Stage four - synthetic index
+
+Using all the data, Make a model, that predicts price P_0,t using all data up to and including time t.
+
+## Stage nightly - night (99)
+
+Make notebook that compares few best methods from each stage. Make graphs, time series of erros and so on. I might add new methods in the Future, so this notebook should be able to easily incorporate new solutions and compare them against what was already made.
+
+# Execution
+
+Remember to use virutal environment (.venv). Do not start building code right away. Firstly, let me know if everything is clear, also make some of your own proposals if you find parts of my plan lacking or deficient.
+
