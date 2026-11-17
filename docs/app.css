@@ -4,10 +4,10 @@
   --muted: #6b645c;
   --line: #e4ddd2;
   --panel: #fffcf7;
-  --on-demand: #1d4ed8;
-  --spot: #c2410c;
-  --reservation: #047857;
-  --custom: #6d28d9;
+  --on-demand: #ea580c;
+  --spot: #db2777;
+  --reservation: #dc2626;
+  --custom: #e11d48;
   color: var(--ink);
   background: var(--bg);
   font-family: "Segoe UI", system-ui, sans-serif;
@@ -82,11 +82,6 @@ h1 {
   color: white;
 }
 
-.geo-filters button[aria-pressed="true"] {
-  background: var(--ink);
-  color: white;
-  border-color: transparent;
-}
 
 h2 {
   margin: 0 0 12px;
@@ -267,14 +262,48 @@ h2 {
 }
 
 .plan-filters button[aria-pressed="true"] {
-  color: white;
   border-color: transparent;
 }
 
-.plan-filters button[data-plan="ON_DEMAND"][aria-pressed="true"] { background: var(--on-demand); }
-.plan-filters button[data-plan="SPOT"][aria-pressed="true"] { background: var(--spot); }
-.plan-filters button[data-plan="RESERVATION"][aria-pressed="true"] { background: var(--reservation); }
-.plan-filters button[data-plan="CUSTOM"][aria-pressed="true"] { background: var(--custom); }
+#plan-filters button[data-tone="ON_DEMAND"] { color: #c2410c; background: #fff7ed; border-color: #fdba74; }
+#plan-filters button[data-tone="RESERVATION"] { color: #b91c1c; background: #fef2f2; border-color: #fca5a5; }
+#plan-filters button[data-tone="SPOT"] { color: #be185d; background: #fdf2f8; border-color: #f9a8d4; }
+#plan-filters button[data-tone="CUSTOM"] { color: #be123c; background: #fff1f2; border-color: #fda4af; }
+#plan-filters button[data-tone="ON_DEMAND"][aria-pressed="true"] { background: #ea580c; color: white; }
+#plan-filters button[data-tone="RESERVATION"][aria-pressed="true"] { background: #dc2626; color: white; }
+#plan-filters button[data-tone="SPOT"][aria-pressed="true"] { background: #db2777; color: white; }
+#plan-filters button[data-tone="CUSTOM"][aria-pressed="true"] { background: #e11d48; color: white; }
+
+#geo-filters button[data-tone="global"] { color: #312e81; background: #eef2ff; border-color: #a5b4fc; }
+#geo-filters button[data-tone="theater"] { color: #1d4ed8; background: #eff6ff; border-color: #93c5fd; }
+#geo-filters button[data-tone="country"] { color: #0e7490; background: #ecfeff; border-color: #67e8f9; }
+#geo-filters button[data-tone="global"][aria-pressed="true"] { background: #3730a3; color: white; }
+#geo-filters button[data-tone="theater"][aria-pressed="true"] { background: #2563eb; color: white; }
+#geo-filters button[data-tone="country"][aria-pressed="true"] { background: #0e7490; color: white; }
+
+#avail-filters button[data-tone="AVAILABLE"] { color: #0f766e; background: #f0fdfa; border-color: #5eead4; }
+#avail-filters button[data-tone="UNKNOWN"] { color: #166534; background: #f0fdf4; border-color: #86efac; }
+#avail-filters button[data-tone="WAITLIST"] { color: #3f6212; background: #f7fee7; border-color: #bef264; }
+#avail-filters button[data-tone="AVAILABLE"][aria-pressed="true"] { background: #0f766e; color: white; }
+#avail-filters button[data-tone="UNKNOWN"][aria-pressed="true"] { background: #15803d; color: white; }
+#avail-filters button[data-tone="WAITLIST"][aria-pressed="true"] { background: #84cc16; color: #1c1915; }
+
+#link-filters button[data-tone="SXM"] { color: #92400e; background: #fffbeb; border-color: #fcd34d; }
+#link-filters button[data-tone="SXM4"] { color: #854d0e; background: #fefce8; border-color: #fde047; }
+#link-filters button[data-tone="SXM5"] { color: #a16207; background: #fffbeb; border-color: #fbbf24; }
+#link-filters button[data-tone="PCIe"] { color: #854d0e; background: #fef9c3; border-color: #facc15; }
+#link-filters button[data-tone="NVL"] { color: #713f12; background: #fef3c7; border-color: #f59e0b; }
+#link-filters button[data-tone="NVL72"] { color: #78350f; background: #fff7ed; border-color: #fdba74; }
+#link-filters button[data-tone="OAM"] { color: #57534e; background: #f5f0e8; border-color: #d6c4a8; }
+#link-filters button[data-tone="UNKNOWN"] { color: #57534e; background: #f7f3ec; border-color: #e6d7c3; }
+#link-filters button[data-tone="SXM"][aria-pressed="true"] { background: #a16207; color: white; }
+#link-filters button[data-tone="SXM4"][aria-pressed="true"] { background: #ca8a04; color: #1c1915; }
+#link-filters button[data-tone="SXM5"][aria-pressed="true"] { background: #eab308; color: #1c1915; }
+#link-filters button[data-tone="PCIe"][aria-pressed="true"] { background: #facc15; color: #1c1915; }
+#link-filters button[data-tone="NVL"][aria-pressed="true"] { background: #d97706; color: #1c1915; }
+#link-filters button[data-tone="NVL72"][aria-pressed="true"] { background: #f59e0b; color: #1c1915; }
+#link-filters button[data-tone="OAM"][aria-pressed="true"] { background: #c4a574; color: #1c1915; }
+#link-filters button[data-tone="UNKNOWN"][aria-pressed="true"] { background: #e4d5bc; color: #1c1915; }
 
 .picker-actions {
   display: flex;
@@ -338,10 +367,10 @@ h2 {
   white-space: nowrap;
 }
 
-.plan-ON_DEMAND { color: var(--on-demand); background: #dbe7ff; }
-.plan-SPOT { color: var(--spot); background: #ffedd5; }
-.plan-RESERVATION { color: var(--reservation); background: #d1fae5; }
-.plan-CUSTOM { color: var(--custom); background: #ede9fe; }
+.plan-ON_DEMAND { color: #c2410c; background: #ffedd5; }
+.plan-SPOT { color: #be185d; background: #fce7f3; }
+.plan-RESERVATION { color: #b91c1c; background: #fee2e2; }
+.plan-CUSTOM { color: #be123c; background: #ffe4e6; }
 
 main {
   min-width: 0;

@@ -110,6 +110,16 @@ def load_silicon(root=None) -> tuple[dict, dict[str, SiliconSeries]]:
             {"id": "UNKNOWN", "label": "Unknown"},
             {"id": "WAITLIST", "label": "Waitlist"},
         ],
+        "interconnects": [
+            {"id": "SXM", "label": "SXM"},
+            {"id": "SXM4", "label": "SXM4"},
+            {"id": "SXM5", "label": "SXM5"},
+            {"id": "PCIe", "label": "PCIe"},
+            {"id": "NVL", "label": "NVL"},
+            {"id": "NVL72", "label": "NVL72"},
+            {"id": "OAM", "label": "OAM"},
+            {"id": "UNKNOWN", "label": "Unknown"},
+        ],
         "default_id": DEFAULT_ID if DEFAULT_ID in series else None,
     }
     return meta, series

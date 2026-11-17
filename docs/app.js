@@ -15,6 +15,7 @@ const state = {
   plans: new Set(),
   geos: new Set(["global"]),
   availabilities: new Set(["AVAILABLE", "UNKNOWN", "WAITLIST"]),
+  interconnects: new Set(),
   query: "",
 };
 
@@ -163,6 +164,7 @@ function paintHeader() {
   document.querySelector("#show-price").closest("label").hidden = silicon;
   document.querySelector("#geo-filters").hidden = !silicon;
   document.querySelector("#avail-filters").hidden = !silicon;
+  document.querySelector("#link-filters").hidden = !silicon;
   search.placeholder = silicon ? "Search offers" : "Search cards";
   if (!payload) return;
   if (silicon) {
@@ -197,8 +199,27 @@ function applyMode(mode) {
       { id: "WAITLIST", label: "Waitlist" },
     ];
     state.availabilities = new Set(availabilities.map((item) => item.id));
+    const interconnects = [...(payload.meta.interconnects || [
+      { id: "SXM", label: "SXM" },
+      { id: "SXM4", label: "SXM4" },
+      { id: "SXM5", label: "SXM5" },
+      { id: "PCIe", label: "PCIe" },
+      { id: "NVL", label: "NVL" },
+      { id: "NVL72", label: "NVL72" },
+      { id: "OAM", label: "OAM" },
+      { id: "UNKNOWN", label: "Unknown" },
+    ])];
+    const seen = new Set(interconnects.map((item) => item.id));
+    for (const row of payload.series) {
+      if (row.interconnect && !seen.has(row.interconnect)) {
+        seen.add(row.interconnect);
+        interconnects.push({ id: row.interconnect, label: row.interconnect });
+      }
+    }
+    state.interconnects = new Set(interconnects.map((item) => item.id));
     renderGeoFilters(payload.meta.geographies);
     renderAvailabilityFilters(availabilities);
+    renderInterconnectFilters(interconnects);
     if (payload.meta.default_id) state.selected.add(payload.meta.default_id);
   } else if (payload.meta.baseline_id) {
     state.selected.add(payload.meta.baseline_id);
@@ -209,59 +230,38 @@ function applyMode(mode) {
   loadHistory();
 }
 
-function renderGeoFilters(geographies) {
-  const host = document.querySelector("#geo-filters");
+function renderToggleFilters(host, items, selected) {
   host.replaceChildren();
-  for (const geo of geographies) {
+  for (const item of items) {
     const button = document.createElement("button");
     button.type = "button";
-    button.textContent = geo.label;
-    button.setAttribute("aria-pressed", String(state.geos.has(geo.id)));
+    button.dataset.tone = item.id;
+    button.textContent = item.label;
+    button.setAttribute("aria-pressed", String(selected.has(item.id)));
     button.addEventListener("click", () => {
-      if (state.geos.has(geo.id)) state.geos.delete(geo.id);
-      else state.geos.add(geo.id);
-      button.setAttribute("aria-pressed", String(state.geos.has(geo.id)));
+      if (selected.has(item.id)) selected.delete(item.id);
+      else selected.add(item.id);
+      button.setAttribute("aria-pressed", String(selected.has(item.id)));
       renderOptions();
     });
     host.appendChild(button);
   }
+}
+
+function renderGeoFilters(geographies) {
+  renderToggleFilters(document.querySelector("#geo-filters"), geographies, state.geos);
 }
 
 function renderAvailabilityFilters(availabilities) {
-  const host = document.querySelector("#avail-filters");
-  host.replaceChildren();
-  for (const item of availabilities) {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.textContent = item.label;
-    button.setAttribute("aria-pressed", String(state.availabilities.has(item.id)));
-    button.addEventListener("click", () => {
-      if (state.availabilities.has(item.id)) state.availabilities.delete(item.id);
-      else state.availabilities.add(item.id);
-      button.setAttribute("aria-pressed", String(state.availabilities.has(item.id)));
-      renderOptions();
-    });
-    host.appendChild(button);
-  }
+  renderToggleFilters(document.querySelector("#avail-filters"), availabilities, state.availabilities);
+}
+
+function renderInterconnectFilters(interconnects) {
+  renderToggleFilters(document.querySelector("#link-filters"), interconnects, state.interconnects);
 }
 
 function renderPlanFilters(plans) {
-  const host = document.querySelector("#plan-filters");
-  host.replaceChildren();
-  for (const plan of plans) {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.dataset.plan = plan.id;
-    button.textContent = plan.label;
-    button.setAttribute("aria-pressed", "true");
-    button.addEventListener("click", () => {
-      if (state.plans.has(plan.id)) state.plans.delete(plan.id);
-      else state.plans.add(plan.id);
-      button.setAttribute("aria-pressed", String(state.plans.has(plan.id)));
-      renderOptions();
-    });
-    host.appendChild(button);
-  }
+  renderToggleFilters(document.querySelector("#plan-filters"), plans, state.plans);
 }
 
 function visibleSeries() {
@@ -269,6 +269,7 @@ function visibleSeries() {
     if (!state.plans.has(row.billing)) return false;
     if (state.mode === "silicon" && !state.geos.has(row.geography_level)) return false;
     if (state.mode === "silicon" && !state.availabilities.has(row.availability)) return false;
+    if (state.mode === "silicon" && !state.interconnects.has(row.interconnect)) return false;
     if (!state.query) return true;
     const haystack = state.mode === "silicon"
       ? `${row.label} ${row.gpu_id} ${row.plan} ${row.geography} ${row.interconnect} ${row.availability}`
