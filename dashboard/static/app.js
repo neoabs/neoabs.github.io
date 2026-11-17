@@ -14,6 +14,7 @@ const state = {
   selected: new Set(),
   plans: new Set(),
   geos: new Set(["global"]),
+  availabilities: new Set(["AVAILABLE", "UNKNOWN", "WAITLIST"]),
   query: "",
 };
 
@@ -161,6 +162,7 @@ function paintHeader() {
   document.querySelector("#chart-toggle").textContent = silicon ? "Level over time" : "Index over time";
   document.querySelector("#show-price").closest("label").hidden = silicon;
   document.querySelector("#geo-filters").hidden = !silicon;
+  document.querySelector("#avail-filters").hidden = !silicon;
   search.placeholder = silicon ? "Search offers" : "Search cards";
   if (!payload) return;
   if (silicon) {
@@ -189,7 +191,14 @@ function applyMode(mode) {
   paintSwitch(mode);
   paintHeader();
   if (mode === "silicon") {
+    const availabilities = payload.meta.availabilities || [
+      { id: "AVAILABLE", label: "Available" },
+      { id: "UNKNOWN", label: "Unknown" },
+      { id: "WAITLIST", label: "Waitlist" },
+    ];
+    state.availabilities = new Set(availabilities.map((item) => item.id));
     renderGeoFilters(payload.meta.geographies);
+    renderAvailabilityFilters(availabilities);
     if (payload.meta.default_id) state.selected.add(payload.meta.default_id);
   } else if (payload.meta.baseline_id) {
     state.selected.add(payload.meta.baseline_id);
@@ -212,6 +221,24 @@ function renderGeoFilters(geographies) {
       if (state.geos.has(geo.id)) state.geos.delete(geo.id);
       else state.geos.add(geo.id);
       button.setAttribute("aria-pressed", String(state.geos.has(geo.id)));
+      renderOptions();
+    });
+    host.appendChild(button);
+  }
+}
+
+function renderAvailabilityFilters(availabilities) {
+  const host = document.querySelector("#avail-filters");
+  host.replaceChildren();
+  for (const item of availabilities) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.textContent = item.label;
+    button.setAttribute("aria-pressed", String(state.availabilities.has(item.id)));
+    button.addEventListener("click", () => {
+      if (state.availabilities.has(item.id)) state.availabilities.delete(item.id);
+      else state.availabilities.add(item.id);
+      button.setAttribute("aria-pressed", String(state.availabilities.has(item.id)));
       renderOptions();
     });
     host.appendChild(button);
@@ -241,6 +268,7 @@ function visibleSeries() {
   return state.catalog.filter((row) => {
     if (!state.plans.has(row.billing)) return false;
     if (state.mode === "silicon" && !state.geos.has(row.geography_level)) return false;
+    if (state.mode === "silicon" && !state.availabilities.has(row.availability)) return false;
     if (!state.query) return true;
     const haystack = state.mode === "silicon"
       ? `${row.label} ${row.gpu_id} ${row.plan} ${row.geography} ${row.interconnect} ${row.availability}`

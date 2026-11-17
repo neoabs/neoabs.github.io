@@ -105,6 +105,11 @@ def load_silicon(root=None) -> tuple[dict, dict[str, SiliconSeries]]:
             {"id": "theater", "label": "Theater"},
             {"id": "country", "label": "Country"},
         ],
+        "availabilities": [
+            {"id": "AVAILABLE", "label": "Available"},
+            {"id": "UNKNOWN", "label": "Unknown"},
+            {"id": "WAITLIST", "label": "Waitlist"},
+        ],
         "default_id": DEFAULT_ID if DEFAULT_ID in series else None,
     }
     return meta, series

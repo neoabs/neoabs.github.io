@@ -247,6 +247,10 @@ h2 {
   margin: 12px 0 8px;
 }
 
+.plan-filters + .plan-filters {
+  margin-top: 0;
+}
+
 .plan-filters button,
 .picker-actions button,
 .chip button {
