@@ -46,14 +46,57 @@ class SiliconDataTests(unittest.TestCase):
         self.assertAlmostEqual(sxm.iloc[0].index_value, 3.6)
         self.assertEqual(int(sxm.iloc[0].n_providers), 2)
 
-        pcie = index[(index.geography == "GLOBAL") & (index.interconnect == "PCIe")]
+        pcie = index[
+            (index.geography == "GLOBAL")
+            & (index.interconnect == "PCIe")
+            & (index.availability == "AVAILABLE")
+        ]
         self.assertEqual(len(pcie), 1)
         self.assertAlmostEqual(pcie.iloc[0].index_value, 9.0)
 
-        unknown = index[(index.geography == "GLOBAL") & (index.interconnect == "UNKNOWN")]
-        self.assertEqual(set(unknown.availability), {"UNKNOWN"})
+        unknown = index[(index.geography == "GLOBAL") & (index.interconnect == "UNKNOWN") & (index.availability == "UNKNOWN")]
+        self.assertEqual(len(unknown), 1)
 
-        waitlist = index[(index.geography == "AMER") & (index.availability == "WAITLIST")]
+        availability_total = index[
+            (index.geography == "GLOBAL")
+            & (index.interconnect == "SXM")
+            & (index.availability == "TOTAL")
+            & (index.billing == "ON_DEMAND")
+        ]
+        self.assertEqual(len(availability_total), 1)
+        # SXM quotes: 4*8 available + 2*2 available + 5*4 waitlist.
+        self.assertAlmostEqual(availability_total.iloc[0].index_value, 4.0)
+        self.assertEqual(int(availability_total.iloc[0].listed_gpus), 14)
+
+        interconnect_total = index[
+            (index.geography == "GLOBAL")
+            & (index.interconnect == "TOTAL")
+            & (index.availability == "AVAILABLE")
+            & (index.billing == "ON_DEMAND")
+        ]
+        self.assertEqual(len(interconnect_total), 1)
+        # Available quotes pooled before the provider median. AWS lists both
+        # SXM (4.0 x 8) and PCIe (9.0 x 1), so its price is the median 6.5
+        # across 9 GPUs. AceCloud stays 2.0 x 2.
+        self.assertAlmostEqual(interconnect_total.iloc[0].index_value, round(62.5 / 11, 6))
+        self.assertEqual(int(interconnect_total.iloc[0].listed_gpus), 11)
+
+        both = index[
+            (index.geography == "GLOBAL")
+            & (index.interconnect == "TOTAL")
+            & (index.availability == "TOTAL")
+            & (index.billing == "ON_DEMAND")
+        ]
+        self.assertEqual(len(both), 1)
+        # AWS again contributes one median, 6.5 across 9 GPUs, plus AceCloud,
+        # CoreWeave, and Lambda.
+        self.assertAlmostEqual(both.iloc[0].index_value, round(94.5 / 19, 6))
+
+        waitlist = index[
+            (index.geography == "AMER")
+            & (index.availability == "WAITLIST")
+            & (index.interconnect == "SXM")
+        ]
         self.assertEqual(len(waitlist), 1)
         self.assertAlmostEqual(waitlist.iloc[0].index_value, 5.0)
 

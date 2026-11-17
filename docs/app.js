@@ -194,12 +194,14 @@ function applyMode(mode) {
   paintHeader();
   if (mode === "silicon") {
     const availabilities = payload.meta.availabilities || [
+      { id: "TOTAL", label: "Total" },
       { id: "AVAILABLE", label: "Available" },
       { id: "UNKNOWN", label: "Unknown" },
       { id: "WAITLIST", label: "Waitlist" },
     ];
-    state.availabilities = new Set(availabilities.map((item) => item.id));
+    state.availabilities = new Set(availabilities.map((item) => item.id).filter((id) => id !== "TOTAL"));
     const interconnects = [...(payload.meta.interconnects || [
+      { id: "TOTAL", label: "Total" },
       { id: "SXM", label: "SXM" },
       { id: "SXM4", label: "SXM4" },
       { id: "SXM5", label: "SXM5" },
@@ -216,7 +218,7 @@ function applyMode(mode) {
         interconnects.push({ id: row.interconnect, label: row.interconnect });
       }
     }
-    state.interconnects = new Set(interconnects.map((item) => item.id));
+    state.interconnects = new Set(interconnects.map((item) => item.id).filter((id) => id !== "TOTAL"));
     renderGeoFilters(payload.meta.geographies);
     renderAvailabilityFilters(availabilities);
     renderInterconnectFilters(interconnects);

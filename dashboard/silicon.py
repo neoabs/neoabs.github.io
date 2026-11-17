@@ -14,6 +14,7 @@ AVAILABILITY_LABELS = {
     "AVAILABLE": "Available",
     "WAITLIST": "Waitlist",
     "UNKNOWN": "Unknown",
+    "TOTAL": "Total",
 }
 
 DEFAULT_ID = "nvidia-h100__ON_DEMAND__global__GLOBAL__SXM__AVAILABLE"
@@ -33,7 +34,12 @@ class SiliconSeries:
 
     def label(self) -> str:
         availability = AVAILABILITY_LABELS.get(self.availability, self.availability)
-        interconnect = "Unknown" if self.interconnect == "UNKNOWN" else self.interconnect
+        if self.interconnect == "TOTAL":
+            interconnect = "Total"
+        elif self.interconnect == "UNKNOWN":
+            interconnect = "Unknown"
+        else:
+            interconnect = self.interconnect
         return f"{self.name} · {self.geography} · {interconnect} · {availability}"
 
     def catalog_row(self) -> dict:
@@ -106,11 +112,13 @@ def load_silicon(root=None) -> tuple[dict, dict[str, SiliconSeries]]:
             {"id": "country", "label": "Country"},
         ],
         "availabilities": [
+            {"id": "TOTAL", "label": "Total"},
             {"id": "AVAILABLE", "label": "Available"},
             {"id": "UNKNOWN", "label": "Unknown"},
             {"id": "WAITLIST", "label": "Waitlist"},
         ],
         "interconnects": [
+            {"id": "TOTAL", "label": "Total"},
             {"id": "SXM", "label": "SXM"},
             {"id": "SXM4", "label": "SXM4"},
             {"id": "SXM5", "label": "SXM5"},
@@ -128,13 +136,17 @@ def load_silicon(root=None) -> tuple[dict, dict[str, SiliconSeries]]:
 def catalog_payload(meta: dict, series: dict[str, SiliconSeries]) -> dict:
     rows = [item.catalog_row() for item in series.values()]
     level_order = {"global": 0, "theater": 1, "country": 2}
+
+    def rank(value: str) -> tuple:
+        return (0 if value == "TOTAL" else 1, value)
+
     rows.sort(key=lambda row: (
         row["name"].lower(),
         row["billing"],
         level_order.get(row["geography_level"], 9),
         row["geography"],
-        row["interconnect"],
-        row["availability"],
+        rank(row["interconnect"]),
+        rank(row["availability"]),
     ))
     return {"meta": meta, "series": rows}
 

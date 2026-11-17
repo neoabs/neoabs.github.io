@@ -14,6 +14,8 @@ Storage, independent of ``GPU_BASE_PLAN``::
 
 ``CUSTOM`` billing and ``UNAVAILABLE`` quotes are left out. A blank interconnect
 is stored as ``UNKNOWN``. ``UNKNOWN`` availability stays its own class.
+``TOTAL`` rows pool every kept availability, every interconnect, or both,
+using the same provider median and listed-GPU weight.
 """
 
 from __future__ import annotations
@@ -25,7 +27,7 @@ import pandas as pd
 
 from icx.config import find_root
 
-RECIPE = "silicon-data-v1"
+RECIPE = "silicon-data-v2"
 DIRECTORY_NAME = "SiliconData"
 
 BILLING_KEPT = ("ON_DEMAND", "RESERVATION", "SPOT")
@@ -94,7 +96,7 @@ def build_silicon_index(quotes: pd.DataFrame) -> pd.DataFrame:
     if frame.empty:
         return pd.DataFrame(columns=INDEX_COLUMNS)
     expanded = _with_geographies(frame)
-    providers = _provider_prices(expanded)
+    providers = _provider_prices(_with_totals(expanded))
     return _aggregate(providers)
 
 
@@ -153,6 +155,11 @@ def write_silicon_index(quotes: pd.DataFrame, root: Path | None = None) -> Path:
         "dropped_availability": [AVAILABILITY_DROPPED],
         "blank_interconnect": "UNKNOWN",
         "geographies": ["country", "theater", "global"],
+        "totals": {
+            "availability": "TOTAL pools every kept availability for that interconnect",
+            "interconnect": "TOTAL pools every interconnect for that availability",
+            "both": "TOTAL availability and TOTAL interconnect pool the whole offer",
+        },
         "theaters": {"AMER": ["US", "CA", "BR", "KN"], "EMEA": sorted(c for c, t in THEATER.items() if t == "EMEA"), "APAC": sorted(c for c, t in THEATER.items() if t == "APAC")},
         "n_rows": int(len(index)),
         "n_gpus": int(index["gpu_id"].nunique()) if not index.empty else 0,
@@ -191,6 +198,14 @@ def _with_geographies(frame: pd.DataFrame) -> pd.DataFrame:
     theater = frame.assign(geography_level="theater", geography=frame["provider_country"].map(THEATER))
     global_ = frame.assign(geography_level="global", geography="GLOBAL")
     return pd.concat([country, theater, global_], ignore_index=True)
+
+
+def _with_totals(frame: pd.DataFrame) -> pd.DataFrame:
+    """Add pooled availability, pooled interconnect, and the pool of both."""
+    by_availability = frame.assign(availability="TOTAL")
+    by_interconnect = frame.assign(interconnect="TOTAL")
+    both = frame.assign(availability="TOTAL", interconnect="TOTAL")
+    return pd.concat([frame, by_availability, by_interconnect, both], ignore_index=True)
 
 
 def _provider_prices(frame: pd.DataFrame) -> pd.DataFrame:

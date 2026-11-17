@@ -261,8 +261,28 @@ h2 {
   color: var(--muted);
 }
 
-.plan-filters button[aria-pressed="true"] {
+#plan-filters button,
+#avail-filters button { border-radius: 999px; }
+
+#geo-filters button,
+#link-filters button { border-radius: 3px; }
+
+#plan-filters button[aria-pressed="true"],
+#link-filters button[aria-pressed="true"] {
   border-color: transparent;
+}
+
+#geo-filters button,
+#avail-filters button {
+  background: #fff;
+  border-style: solid;
+}
+
+#geo-filters button[aria-pressed="true"],
+#avail-filters button[aria-pressed="true"] {
+  border-width: 2px;
+  background: #fff;
+  font-weight: 700;
 }
 
 #plan-filters button[data-tone="ON_DEMAND"] { color: #c2410c; background: #fff7ed; border-color: #fdba74; }
@@ -274,20 +294,18 @@ h2 {
 #plan-filters button[data-tone="SPOT"][aria-pressed="true"] { background: #db2777; color: white; }
 #plan-filters button[data-tone="CUSTOM"][aria-pressed="true"] { background: #e11d48; color: white; }
 
-#geo-filters button[data-tone="global"] { color: #312e81; background: #eef2ff; border-color: #a5b4fc; }
-#geo-filters button[data-tone="theater"] { color: #1d4ed8; background: #eff6ff; border-color: #93c5fd; }
-#geo-filters button[data-tone="country"] { color: #0e7490; background: #ecfeff; border-color: #67e8f9; }
-#geo-filters button[data-tone="global"][aria-pressed="true"] { background: #3730a3; color: white; }
-#geo-filters button[data-tone="theater"][aria-pressed="true"] { background: #2563eb; color: white; }
-#geo-filters button[data-tone="country"][aria-pressed="true"] { background: #0e7490; color: white; }
+#geo-filters button[data-tone="global"] { color: #3730a3; border-color: #3730a3; }
+#geo-filters button[data-tone="theater"] { color: #2563eb; border-color: #2563eb; }
+#geo-filters button[data-tone="country"] { color: #0e7490; border-color: #0e7490; }
+#geo-filters button[aria-pressed="false"] { opacity: 0.55; }
 
-#avail-filters button[data-tone="AVAILABLE"] { color: #0f766e; background: #f0fdfa; border-color: #5eead4; }
-#avail-filters button[data-tone="UNKNOWN"] { color: #166534; background: #f0fdf4; border-color: #86efac; }
-#avail-filters button[data-tone="WAITLIST"] { color: #3f6212; background: #f7fee7; border-color: #bef264; }
-#avail-filters button[data-tone="AVAILABLE"][aria-pressed="true"] { background: #0f766e; color: white; }
-#avail-filters button[data-tone="UNKNOWN"][aria-pressed="true"] { background: #15803d; color: white; }
-#avail-filters button[data-tone="WAITLIST"][aria-pressed="true"] { background: #84cc16; color: #1c1915; }
+#avail-filters button[data-tone="TOTAL"] { color: #14532d; border-color: #14532d; }
+#avail-filters button[data-tone="AVAILABLE"] { color: #0f766e; border-color: #0f766e; }
+#avail-filters button[data-tone="UNKNOWN"] { color: #15803d; border-color: #15803d; }
+#avail-filters button[data-tone="WAITLIST"] { color: #65a30d; border-color: #65a30d; }
+#avail-filters button[aria-pressed="false"] { opacity: 0.45; }
 
+#link-filters button[data-tone="TOTAL"] { color: #713f12; background: #fef3c7; border-color: #d6b15a; }
 #link-filters button[data-tone="SXM"] { color: #92400e; background: #fffbeb; border-color: #fcd34d; }
 #link-filters button[data-tone="SXM4"] { color: #854d0e; background: #fefce8; border-color: #fde047; }
 #link-filters button[data-tone="SXM5"] { color: #a16207; background: #fffbeb; border-color: #fbbf24; }
@@ -296,6 +314,7 @@ h2 {
 #link-filters button[data-tone="NVL72"] { color: #78350f; background: #fff7ed; border-color: #fdba74; }
 #link-filters button[data-tone="OAM"] { color: #57534e; background: #f5f0e8; border-color: #d6c4a8; }
 #link-filters button[data-tone="UNKNOWN"] { color: #57534e; background: #f7f3ec; border-color: #e6d7c3; }
+#link-filters button[data-tone="TOTAL"][aria-pressed="true"] { background: #713f12; color: white; }
 #link-filters button[data-tone="SXM"][aria-pressed="true"] { background: #a16207; color: white; }
 #link-filters button[data-tone="SXM4"][aria-pressed="true"] { background: #ca8a04; color: #1c1915; }
 #link-filters button[data-tone="SXM5"][aria-pressed="true"] { background: #eab308; color: #1c1915; }
