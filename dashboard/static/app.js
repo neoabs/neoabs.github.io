@@ -8,16 +8,20 @@ const PLAN_COLOR = {
 const LINE_COLOR = ["#1d4ed8", "#c2410c", "#047857", "#6d28d9", "#b45309", "#0f766e", "#be123c", "#4338ca"];
 
 const state = {
+  mode: "inverse",
   meta: null,
   catalog: [],
   selected: new Set(),
   plans: new Set(),
+  geos: new Set(["global"]),
   query: "",
 };
 
+const loaded = { inverse: null, silicon: null };
 let plotted = [];
 let tableSeries = [];
-let staticHistory = null;
+let inverseHistory = null;
+const siliconByGpu = new Map();
 let chartSize = { width: 0, height: 0 };
 const tableView = { showPrice: false, newestFirst: true };
 
@@ -58,6 +62,10 @@ document.querySelector("#date-sort").addEventListener("click", () => {
 
 document.querySelector("#export-csv").addEventListener("click", downloadTableCsv);
 
+for (const button of document.querySelectorAll(".mode-switch button")) {
+  button.addEventListener("click", () => setMode(button.dataset.mode));
+}
+
 new ResizeObserver(() => {
   if (plotted.length) drawChart(plotted);
 }).observe(chart);
@@ -97,18 +105,73 @@ async function readJson(paths) {
 }
 
 async function boot() {
-  const payload = await readJson(["/api/catalog", "data/catalog.json"]);
+  loaded.inverse = await readJson(["/api/catalog", "data/catalog.json"]);
+  applyMode("inverse");
+}
+
+async function setMode(mode) {
+  if (state.mode === mode && loaded[mode]) return;
+  if (mode === "silicon" && !loaded.silicon) {
+    loaded.silicon = await readJson(["/api/silicon/catalog", "data/silicon/catalog.json"]);
+  }
+  applyMode(mode);
+}
+
+function applyMode(mode) {
+  state.mode = mode;
+  const payload = loaded[mode];
   state.meta = payload.meta;
   state.catalog = payload.series;
+  state.selected = new Set();
   state.plans = new Set(payload.meta.plans.map((plan) => plan.id));
-  if (payload.meta.baseline_id) state.selected.add(payload.meta.baseline_id);
-  document.querySelector("#title").textContent = `${payload.meta.baseline_name} · ${payload.meta.baseline_plan}`;
-  document.querySelector("#formula").textContent =
-    "Index × selected price = this baseline price. The baseline series itself is its price divided by the price on the first continuous day.";
+  state.query = "";
+  search.value = "";
+  plotted = [];
+  tableSeries = [];
+  chartSize = { width: 0, height: 0 };
+  document.querySelectorAll(".mode-switch button").forEach((button) => {
+    button.setAttribute("aria-pressed", String(button.dataset.mode === mode));
+  });
+  const silicon = mode === "silicon";
+  document.querySelector("#eyebrow").textContent = silicon ? "Silicon Data" : "Inverse index";
+  document.querySelector("#chart-toggle").textContent = silicon ? "Level over time" : "Index over time";
+  document.querySelector("#show-price").closest("label").hidden = silicon;
+  document.querySelector("#geo-filters").hidden = !silicon;
+  search.placeholder = silicon ? "Search offers" : "Search cards";
+  if (silicon) {
+    document.querySelector("#title").textContent = "Silicon Data";
+    document.querySelector("#formula").textContent =
+      "Dollars per GPU-hour. Each value is the average of provider median prices, weighted by how many GPUs that provider lists for the offer.";
+    renderGeoFilters(payload.meta.geographies);
+    if (payload.meta.default_id) state.selected.add(payload.meta.default_id);
+  } else {
+    document.querySelector("#title").textContent = `${payload.meta.baseline_name} · ${payload.meta.baseline_plan}`;
+    document.querySelector("#formula").textContent =
+      "Index × selected price = this baseline price. The baseline series itself is its price divided by the price on the first continuous day.";
+    if (payload.meta.baseline_id) state.selected.add(payload.meta.baseline_id);
+  }
   renderPlanFilters(payload.meta.plans);
   renderOptions();
   renderChips();
   loadHistory();
+}
+
+function renderGeoFilters(geographies) {
+  const host = document.querySelector("#geo-filters");
+  host.replaceChildren();
+  for (const geo of geographies) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.textContent = geo.label;
+    button.setAttribute("aria-pressed", String(state.geos.has(geo.id)));
+    button.addEventListener("click", () => {
+      if (state.geos.has(geo.id)) state.geos.delete(geo.id);
+      else state.geos.add(geo.id);
+      button.setAttribute("aria-pressed", String(state.geos.has(geo.id)));
+      renderOptions();
+    });
+    host.appendChild(button);
+  }
 }
 
 function renderPlanFilters(plans) {
@@ -133,9 +196,12 @@ function renderPlanFilters(plans) {
 function visibleSeries() {
   return state.catalog.filter((row) => {
     if (!state.plans.has(row.billing)) return false;
+    if (state.mode === "silicon" && !state.geos.has(row.geography_level)) return false;
     if (!state.query) return true;
-    const haystack = `${row.name} ${row.gpu_id} ${row.plan} ${row.billing}`.toLowerCase();
-    return haystack.includes(state.query);
+    const haystack = state.mode === "silicon"
+      ? `${row.label} ${row.gpu_id} ${row.plan} ${row.geography} ${row.interconnect} ${row.availability}`
+      : `${row.name} ${row.gpu_id} ${row.plan} ${row.billing}`;
+    return haystack.toLowerCase().includes(state.query);
   });
 }
 
@@ -149,13 +215,13 @@ function renderOptions() {
     const box = document.createElement("input");
     box.type = "checkbox";
     box.checked = state.selected.has(row.id);
-    box.setAttribute("aria-label", `${row.name} ${row.plan}`);
+    box.setAttribute("aria-label", state.mode === "silicon" ? row.label : `${row.name} ${row.plan}`);
     box.addEventListener("click", (event) => event.stopPropagation());
     box.addEventListener("change", () => toggle(row.id));
     const label = document.createElement("span");
     const name = document.createElement("span");
     name.className = "name";
-    name.textContent = row.baseline ? `${row.name} (baseline)` : row.name;
+    name.textContent = state.mode === "silicon" ? row.label : (row.baseline ? `${row.name} (baseline)` : row.name);
     const id = document.createElement("span");
     id.className = "id";
     id.textContent = row.gpu_id;
@@ -180,7 +246,7 @@ function renderChips() {
   if (!chosen.length) {
     const note = document.createElement("p");
     note.className = "empty";
-    note.textContent = "Select one or more cards.";
+    note.textContent = state.mode === "silicon" ? "Select one or more offers." : "Select one or more cards.";
     chips.appendChild(note);
     return;
   }
@@ -189,11 +255,11 @@ function renderChips() {
     chip.className = "chip";
     chip.style.borderLeftColor = LINE_COLOR[index % LINE_COLOR.length];
     const text = document.createElement("span");
-    text.textContent = row.name;
+    text.textContent = state.mode === "silicon" ? row.label : row.name;
     const remove = document.createElement("button");
     remove.type = "button";
     remove.textContent = "×";
-    remove.setAttribute("aria-label", `Remove ${row.name} ${row.plan}`);
+    remove.setAttribute("aria-label", `Remove ${state.mode === "silicon" ? row.label : `${row.name} ${row.plan}`}`);
     remove.addEventListener("click", () => toggle(row.id));
     chip.append(text, planBadge(row), remove);
     chips.appendChild(chip);
@@ -216,21 +282,42 @@ async function loadHistory() {
     table.replaceChildren(empty("Historical index values will appear here."));
     return;
   }
-  let payload = null;
-  try {
-    const response = await fetch(`/api/history?series=${encodeURIComponent(ids.join(","))}`);
-    const type = response.headers.get("content-type") || "";
-    if (response.ok && type.includes("json")) payload = await response.json();
-  } catch (error) {
-    payload = null;
-  }
-  if (!payload) {
-    if (!staticHistory) staticHistory = await readJson(["data/history.json"]);
-    payload = staticHistory;
-  }
+  const payload = state.mode === "silicon" ? await siliconPayload(ids) : await inversePayload(ids);
   const ordered = ids.map((id) => payload.series.find((series) => series.id === id)).filter(Boolean);
   drawChart(ordered);
   drawTable(ordered);
+}
+
+async function inversePayload(ids) {
+  try {
+    const response = await fetch(`/api/history?series=${encodeURIComponent(ids.join(","))}`);
+    const type = response.headers.get("content-type") || "";
+    if (response.ok && type.includes("json")) return response.json();
+  } catch (error) {
+    // Fall through to the static file used by GitHub Pages.
+  }
+  if (!inverseHistory) inverseHistory = await readJson(["data/history.json"]);
+  return inverseHistory;
+}
+
+async function siliconPayload(ids) {
+  try {
+    const response = await fetch(`/api/silicon/history?series=${encodeURIComponent(ids.join(","))}`);
+    const type = response.headers.get("content-type") || "";
+    if (response.ok && type.includes("json")) return response.json();
+  } catch (error) {
+    // Fall through to the per-GPU files used by GitHub Pages.
+  }
+  const gpus = [...new Set(ids.map((id) => id.split("__")[0]))];
+  const series = [];
+  for (const gpu of gpus) {
+    if (!siliconByGpu.has(gpu)) {
+      const payload = await readJson([`data/silicon/${gpu}.json`]);
+      siliconByGpu.set(gpu, payload.series);
+    }
+    series.push(...siliconByGpu.get(gpu));
+  }
+  return { series };
 }
 
 function drawChart(seriesList) {
@@ -254,9 +341,10 @@ function drawChart(seriesList) {
   const margin = { top: 16, right: 16, bottom: 36, left: 52 };
   const innerWidth = width - margin.left - margin.right;
   const innerHeight = height - margin.top - margin.bottom;
+  const inverse = state.mode === "inverse";
   const values = seriesList.flatMap((series) => series.points.map((point) => point.index));
-  let min = Math.min(...values, 1);
-  let max = Math.max(...values, 1);
+  let min = inverse ? Math.min(...values, 1) : Math.min(...values);
+  let max = inverse ? Math.max(...values, 1) : Math.max(...values);
   if (min === max) {
     min -= 0.05;
     max += 0.05;
@@ -268,7 +356,7 @@ function drawChart(seriesList) {
   const y = (value) => margin.top + ((max - value) / (max - min)) * innerHeight;
 
   const svg = svgEl("svg", { viewBox: `0 0 ${width} ${height}`, role: "img" });
-  svg.appendChild(svgEl("title", {}, "Inverse index over time"));
+  svg.appendChild(svgEl("title", {}, inverse ? "Inverse index over time" : "Silicon Data level over time"));
   for (let tick = 0; tick < 5; tick += 1) {
     const value = min + ((max - min) * tick) / 4;
     const yPos = y(value);
@@ -286,20 +374,22 @@ function drawChart(seriesList) {
     }, date.slice(5)));
   });
 
-  const yOne = y(1);
-  svg.appendChild(svgEl("line", {
-    class: "reference-line",
-    x1: margin.left,
-    x2: width - margin.right,
-    y1: yOne,
-    y2: yOne,
-  }));
-  svg.appendChild(svgEl("text", {
-    class: "reference-label",
-    x: width - margin.right - 4,
-    y: yOne - 6,
-    "text-anchor": "end",
-  }, "1.000"));
+  if (inverse) {
+    const yOne = y(1);
+    svg.appendChild(svgEl("line", {
+      class: "reference-line",
+      x1: margin.left,
+      x2: width - margin.right,
+      y1: yOne,
+      y2: yOne,
+    }));
+    svg.appendChild(svgEl("text", {
+      class: "reference-label",
+      x: width - margin.right - 4,
+      y: yOne - 6,
+      "text-anchor": "end",
+    }, "1.000"));
+  }
 
   seriesList.forEach((series, index) => {
     const color = LINE_COLOR[index % LINE_COLOR.length];
@@ -368,7 +458,8 @@ function drawChart(seriesList) {
     seriesList.forEach((series) => {
       const point = series.points.find((item) => item.date === date);
       const line = document.createElement("div");
-      line.textContent = point ? `${series.name} ${series.plan}: ${point.index.toFixed(4)}` : `${series.name}: —`;
+      const title = series.label || series.name;
+      line.textContent = point ? `${title} ${series.plan}: ${point.index.toFixed(4)}` : `${title}: —`;
       tip.appendChild(line);
     });
     const left = event.clientX - bounds.left + 12;
@@ -390,11 +481,12 @@ function drawTable(seriesList) {
   const dateHeader = document.createElement("th");
   dateHeader.textContent = "Date";
   head.appendChild(dateHeader);
+  const showPrice = tableView.showPrice && state.mode === "inverse";
   for (const series of seriesList) {
     const header = document.createElement("th");
-    header.append(series.name, planBadge(series));
+    header.append(state.mode === "silicon" ? series.label : series.name, planBadge(series));
     head.appendChild(header);
-    if (!tableView.showPrice) continue;
+    if (!showPrice) continue;
     const priceHeader = document.createElement("th");
     priceHeader.textContent = "Price";
     head.appendChild(priceHeader);
@@ -412,7 +504,7 @@ function drawTable(seriesList) {
       const cell = document.createElement("td");
       cell.textContent = point ? point.index.toFixed(4) : "—";
       row.appendChild(cell);
-      if (!tableView.showPrice) continue;
+      if (!showPrice) continue;
       const priceCell = document.createElement("td");
       priceCell.textContent = point && point.price != null ? Number(point.price).toFixed(4) : "—";
       row.appendChild(priceCell);
@@ -432,10 +524,12 @@ function csvEscape(value) {
 function currentTableCsv() {
   const dates = [...new Set(tableSeries.flatMap((series) => series.points.map((point) => point.date)))].sort();
   if (tableView.newestFirst) dates.reverse();
+  const showPrice = tableView.showPrice && state.mode === "inverse";
   const header = ["Date"];
   for (const series of tableSeries) {
-    header.push(`${series.name} ${series.plan}`);
-    if (tableView.showPrice) header.push(`${series.name} ${series.plan} price`);
+    const title = state.mode === "silicon" ? `${series.label} ${series.plan}` : `${series.name} ${series.plan}`;
+    header.push(title);
+    if (showPrice) header.push(`${series.name} ${series.plan} price`);
   }
   const lines = [header.map(csvEscape).join(",")];
   for (const date of dates) {
@@ -443,7 +537,7 @@ function currentTableCsv() {
     for (const series of tableSeries) {
       const point = series.points.find((item) => item.date === date);
       cells.push(point ? point.index.toFixed(4) : "");
-      if (tableView.showPrice) cells.push(point && point.price != null ? Number(point.price).toFixed(4) : "");
+      if (showPrice) cells.push(point && point.price != null ? Number(point.price).toFixed(4) : "");
     }
     lines.push(cells.map(csvEscape).join(","));
   }
@@ -456,7 +550,7 @@ function downloadTableCsv() {
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
-  link.download = "index-history.csv";
+  link.download = state.mode === "silicon" ? "silicon-data-levels.csv" : "index-history.csv";
   link.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }

@@ -20,11 +20,13 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from dashboard.data import load_series
+from dashboard.silicon import catalog_payload, gpu_history_payload, load_silicon
 
 HOST = "127.0.0.1"
 PORT = 8765
 STATIC = Path(__file__).resolve().parent / "static"
 META, SERIES = load_series()
+SILICON_META, SILICON = load_silicon()
 
 
 class DashboardHandler(BaseHTTPRequestHandler):
@@ -47,6 +49,16 @@ class DashboardHandler(BaseHTTPRequestHandler):
         if parsed.path == "/data/history.json":
             self._send_json(200, {"series": [series.history() for series in SERIES.values()]})
             return
+        if parsed.path == "/data/silicon/catalog.json":
+            self._send_json(200, catalog_payload(SILICON_META, SILICON))
+            return
+        if parsed.path.startswith("/data/silicon/") and parsed.path.endswith(".json"):
+            gpu_id = unquote(parsed.path.removeprefix("/data/silicon/")[: -len(".json")])
+            if not gpu_id or "/" in gpu_id or gpu_id in {".", ".."}:
+                self._send_json(404, {"error": "Not found"})
+                return
+            self._send_json(200, gpu_history_payload(SILICON, gpu_id))
+            return
         if parsed.path.startswith("/static/"):
             relative = unquote(parsed.path.removeprefix("/static/"))
             path = (STATIC / relative).resolve()
@@ -60,6 +72,18 @@ class DashboardHandler(BaseHTTPRequestHandler):
             rows = [series.catalog_row() for series in SERIES.values()]
             rows.sort(key=lambda row: (not row["baseline"], row["name"].lower(), row["billing"]))
             self._send_json(200, {"meta": META, "series": rows})
+            return
+        if parsed.path == "/api/silicon/catalog":
+            self._send_json(200, catalog_payload(SILICON_META, SILICON))
+            return
+        if parsed.path == "/api/silicon/history":
+            requested = parse_qs(parsed.query).get("series", [""])[0]
+            ids = [item for item in requested.split(",") if item]
+            unknown = [item for item in ids if item not in SILICON]
+            if unknown:
+                self._send_json(404, {"error": "Unknown series", "ids": unknown})
+                return
+            self._send_json(200, {"series": [SILICON[item].history() for item in ids]})
             return
         if parsed.path == "/api/history":
             requested = parse_qs(parsed.query).get("series", [""])[0]
@@ -100,6 +124,7 @@ def main() -> None:
     server = ThreadingHTTPServer((HOST, PORT), DashboardHandler)
     print(f"Index dashboard: http://{HOST}:{PORT}/", flush=True)
     print(f"Baseline: {META['baseline_name']} · {META['baseline_plan']} ({len(SERIES)} series)", flush=True)
+    print(f"Silicon Data: {len(SILICON)} series", flush=True)
     try:
         server.serve_forever()
     except KeyboardInterrupt:
