@@ -23,6 +23,8 @@ let tableSeries = [];
 let inverseHistory = null;
 const siliconByGpu = new Map();
 let chartSize = { width: 0, height: 0 };
+let modeToken = 0;
+let historyToken = 0;
 const tableView = { showPrice: false, newestFirst: true };
 
 const search = document.querySelector("#search");
@@ -91,12 +93,19 @@ document.querySelector("#clear-selected").addEventListener("click", () => {
 
 boot();
 
+async function fetchJson(url) {
+  const response = await fetch(url);
+  if (!response.ok) return null;
+  const text = (await response.text()).trim();
+  if (!text.startsWith("{") && !text.startsWith("[")) return null;
+  return JSON.parse(text);
+}
+
 async function readJson(paths) {
   for (const path of paths) {
     try {
-      const response = await fetch(path);
-      const type = response.headers.get("content-type") || "";
-      if (response.ok && type.includes("json")) return response.json();
+      const payload = await fetchJson(path);
+      if (payload) return payload;
     } catch (error) {
       // Try the next location. GitHub Pages has no API server.
     }
@@ -105,16 +114,64 @@ async function readJson(paths) {
 }
 
 async function boot() {
-  loaded.inverse = await readJson(["/api/catalog", "data/catalog.json"]);
-  applyMode("inverse");
+  try {
+    loaded.inverse = await readJson(["/api/catalog", "data/catalog.json"]);
+    applyMode("inverse");
+  } catch (error) {
+    document.querySelector("#title").textContent = "Could not load the index";
+    document.querySelector("#formula").textContent = "Refresh the page and try again.";
+  }
+}
+
+function paintSwitch(mode) {
+  document.querySelectorAll(".mode-switch button").forEach((button) => {
+    button.setAttribute("aria-pressed", String(button.dataset.mode === mode));
+  });
 }
 
 async function setMode(mode) {
-  if (state.mode === mode && loaded[mode]) return;
-  if (mode === "silicon" && !loaded.silicon) {
-    loaded.silicon = await readJson(["/api/silicon/catalog", "data/silicon/catalog.json"]);
+  const token = ++modeToken;
+  paintSwitch(mode);
+  if (state.mode === mode && loaded[mode]) {
+    paintHeader();
+    return;
   }
-  applyMode(mode);
+  const title = document.querySelector("#title");
+  const formula = document.querySelector("#formula");
+  const previousTitle = title.textContent;
+  title.textContent = "Loading…";
+  try {
+    if (mode === "silicon" && !loaded.silicon) {
+      loaded.silicon = await readJson(["/api/silicon/catalog", "data/silicon/catalog.json"]);
+    }
+    if (token !== modeToken) return;
+    applyMode(mode);
+  } catch (error) {
+    if (token !== modeToken) return;
+    paintSwitch(state.mode);
+    title.textContent = previousTitle;
+    formula.textContent = "Could not load that index. Try the switch again.";
+  }
+}
+
+function paintHeader() {
+  const silicon = state.mode === "silicon";
+  const payload = loaded[state.mode];
+  document.querySelector("#eyebrow").textContent = silicon ? "Silicon Data" : "Inverse index";
+  document.querySelector("#chart-toggle").textContent = silicon ? "Level over time" : "Index over time";
+  document.querySelector("#show-price").closest("label").hidden = silicon;
+  document.querySelector("#geo-filters").hidden = !silicon;
+  search.placeholder = silicon ? "Search offers" : "Search cards";
+  if (!payload) return;
+  if (silicon) {
+    document.querySelector("#title").textContent = "Silicon Data";
+    document.querySelector("#formula").textContent =
+      "Dollars per GPU-hour. Each value is the average of provider median prices, weighted by how many GPUs that provider lists for the offer.";
+  } else {
+    document.querySelector("#title").textContent = `${payload.meta.baseline_name} · ${payload.meta.baseline_plan}`;
+    document.querySelector("#formula").textContent =
+      "Index × selected price = this baseline price. The baseline series itself is its price divided by the price on the first continuous day.";
+  }
 }
 
 function applyMode(mode) {
@@ -129,26 +186,13 @@ function applyMode(mode) {
   plotted = [];
   tableSeries = [];
   chartSize = { width: 0, height: 0 };
-  document.querySelectorAll(".mode-switch button").forEach((button) => {
-    button.setAttribute("aria-pressed", String(button.dataset.mode === mode));
-  });
-  const silicon = mode === "silicon";
-  document.querySelector("#eyebrow").textContent = silicon ? "Silicon Data" : "Inverse index";
-  document.querySelector("#chart-toggle").textContent = silicon ? "Level over time" : "Index over time";
-  document.querySelector("#show-price").closest("label").hidden = silicon;
-  document.querySelector("#geo-filters").hidden = !silicon;
-  search.placeholder = silicon ? "Search offers" : "Search cards";
-  if (silicon) {
-    document.querySelector("#title").textContent = "Silicon Data";
-    document.querySelector("#formula").textContent =
-      "Dollars per GPU-hour. Each value is the average of provider median prices, weighted by how many GPUs that provider lists for the offer.";
+  paintSwitch(mode);
+  paintHeader();
+  if (mode === "silicon") {
     renderGeoFilters(payload.meta.geographies);
     if (payload.meta.default_id) state.selected.add(payload.meta.default_id);
-  } else {
-    document.querySelector("#title").textContent = `${payload.meta.baseline_name} · ${payload.meta.baseline_plan}`;
-    document.querySelector("#formula").textContent =
-      "Index × selected price = this baseline price. The baseline series itself is its price divided by the price on the first continuous day.";
-    if (payload.meta.baseline_id) state.selected.add(payload.meta.baseline_id);
+  } else if (payload.meta.baseline_id) {
+    state.selected.add(payload.meta.baseline_id);
   }
   renderPlanFilters(payload.meta.plans);
   renderOptions();
@@ -274,6 +318,8 @@ function planBadge(row) {
 }
 
 async function loadHistory() {
+  const token = ++historyToken;
+  const mode = state.mode;
   const ids = [...state.selected];
   if (!ids.length) {
     plotted = [];
@@ -282,7 +328,16 @@ async function loadHistory() {
     table.replaceChildren(empty("Historical index values will appear here."));
     return;
   }
-  const payload = state.mode === "silicon" ? await siliconPayload(ids) : await inversePayload(ids);
+  let payload;
+  try {
+    payload = mode === "silicon" ? await siliconPayload(ids) : await inversePayload(ids);
+  } catch (error) {
+    if (token !== historyToken) return;
+    chart.replaceChildren(empty("Could not load this series."));
+    table.replaceChildren(empty("Could not load this series."));
+    return;
+  }
+  if (token !== historyToken || mode !== state.mode) return;
   const ordered = ids.map((id) => payload.series.find((series) => series.id === id)).filter(Boolean);
   drawChart(ordered);
   drawTable(ordered);
@@ -290,9 +345,8 @@ async function loadHistory() {
 
 async function inversePayload(ids) {
   try {
-    const response = await fetch(`/api/history?series=${encodeURIComponent(ids.join(","))}`);
-    const type = response.headers.get("content-type") || "";
-    if (response.ok && type.includes("json")) return response.json();
+    const payload = await fetchJson(`/api/history?series=${encodeURIComponent(ids.join(","))}`);
+    if (payload) return payload;
   } catch (error) {
     // Fall through to the static file used by GitHub Pages.
   }
@@ -302,9 +356,8 @@ async function inversePayload(ids) {
 
 async function siliconPayload(ids) {
   try {
-    const response = await fetch(`/api/silicon/history?series=${encodeURIComponent(ids.join(","))}`);
-    const type = response.headers.get("content-type") || "";
-    if (response.ok && type.includes("json")) return response.json();
+    const payload = await fetchJson(`/api/silicon/history?series=${encodeURIComponent(ids.join(","))}`);
+    if (payload) return payload;
   } catch (error) {
     // Fall through to the per-GPU files used by GitHub Pages.
   }
